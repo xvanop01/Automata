@@ -68,5 +68,47 @@ while finished == 0:
             final.append(x)
             visited.append(x)
     set_of_states.append(final)
-    print(final)
+    # print(final)
     i += 1
+
+finished = 0
+completed = []
+safra_states = [[0]]
+transitions = []
+blind = []
+for state in safra_states:
+    if state in completed or state == ['fail']:
+        continue
+    new_state = []
+    # 0 transit
+    for item in state:
+        for tran in parsed[item]:
+            if tran[0] == 0 and tran[1] not in new_state:
+                new_state.append(tran[1])
+    new_state.sort()
+    if not new_state:
+        new_state = ['fail']
+    if new_state not in safra_states:
+        safra_states.append(new_state)
+    if (state, 0, new_state) not in transitions:
+        transitions.append((state, 0, new_state))
+    # 1 transit
+    new_state = []
+    for item in state:
+        for tran in parsed[item]:
+            if tran[0] == 1 and tran[1] not in new_state:
+                new_state.append(tran[1])
+    new_state.sort()
+    if not new_state:
+        new_state = ['fail']
+    if new_state not in safra_states:
+        safra_states.append(new_state)
+    if (state, 1, new_state) not in transitions:
+        transitions.append((state, 1, new_state))
+    completed.append(state)
+
+for state in safra_states:
+    print(str(state) + ':')
+    for tran in transitions:
+        if tran[0] == state:
+            print('\t' + str(tran))
