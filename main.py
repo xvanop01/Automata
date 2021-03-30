@@ -107,9 +107,11 @@ while finished == 0:
 acc = 8
 # Safra's construction
 completed = []
-safra_states = [([0], [])]
+safra_states = [([0], [], [])]
 transitions = []
 loop_states = []
+bad_states = []
+bad_transitions = []
 for state in safra_states:
     if state in completed:
         continue
@@ -117,56 +119,88 @@ for state in safra_states:
         transitions.append((state, 0, ['fail']))
         transitions.append((state, 1, ['fail']))
         continue
-    new_state = ([], [])
-    app_loop = False
 
     # 0 transit
+    new_state = ([], [], [])
+    app_loop = False
+    bad = False
     for item in state[0]:
+        if item in state[1]:
+            bad = True
         for tran in parsed[item]:
-            if tran[0] == 0 and tran[1] not in new_state[0]:
+            if tran[0] == 0:
                 if item in state[1]:
-                    new_state[1].append(tran[1])
                     if tran[1] == acc:
-                        app_loop = True
-                new_state[0].append(tran[1])
+                        new_state[2].append(tran[1])
+                    if item in state[2] and tran[1] not in new_state[2]:
+                        new_state[2].append(tran[1])
+                    bad = False
+                    if item not in new_state[1]:
+                        new_state[1].append(tran[1])
+                if tran[1] not in new_state[0]:
+                    new_state[0].append(tran[1])
                 if tran[1] == acc and acc not in new_state[1]:  # acceptance
                     new_state[1].append(acc)
     new_state[0].sort()
     new_state[1].sort()
+    new_state[2].sort()
+    if new_state[1] == new_state[2] and new_state[1]:
+        app_loop = True
+        new_state = (new_state[0], new_state[1], ['success'])
     if new_state[0] == new_state[1]:
-        new_state = (new_state[0], ['success'])
+        new_state = (new_state[0], ['success'], [])
     if not new_state[0]:
         new_state = ['fail']
     if new_state not in safra_states:
         safra_states.append(new_state)
     if new_state not in loop_states and app_loop:
         loop_states.append(new_state)
+    if new_state not in bad_states and bad:
+        bad_states.append(new_state)
+    if bad:
+        bad_transitions.append(safra_states.index(state)*2)
     if (state, 0, new_state) not in transitions:
         transitions.append((state, 0, new_state))
 
     # 1 transit
-    new_state = ([], [])
+    new_state = ([], [], [])
     app_loop = False
+    bad = False
     for item in state[0]:
+        if item in state[1]:
+            bad = True
         for tran in parsed[item]:
-            if tran[0] == 1 and tran[1] not in new_state[0]:
+            if tran[0] == 1:
                 if item in state[1]:
-                    new_state[1].append(tran[1])
                     if tran[1] == acc:
-                        app_loop = True
-                new_state[0].append(tran[1])
+                        new_state[2].append(tran[1])
+                    if item in state[2] and tran[1] not in new_state[2]:
+                        new_state[2].append(tran[1])
+                    bad = False
+                    if item not in new_state[1]:
+                        new_state[1].append(tran[1])
+                if tran[1] not in new_state[0]:
+                    new_state[0].append(tran[1])
                 if tran[1] == acc and acc not in new_state[1]:  # acceptance
                     new_state[1].append(acc)
     new_state[0].sort()
     new_state[1].sort()
+    new_state[2].sort()
+    if new_state[1] == new_state[2] and new_state[1]:
+        app_loop = True
+        new_state = (new_state[0], new_state[1], ['success'])
     if new_state[0] == new_state[1]:
-        new_state = (new_state[0], ['success'])
+        new_state = (new_state[0], ['success'], [])
     if not new_state[0]:
         new_state = ['fail']
     if new_state not in safra_states:
         safra_states.append(new_state)
     if new_state not in loop_states and app_loop:
         loop_states.append(new_state)
+    if new_state not in bad_states and bad:
+        bad_states.append(new_state)
+    if bad:
+        bad_transitions.append(safra_states.index(state)*2+1)
     if (state, 1, new_state) not in transitions:
         transitions.append((state, 1, new_state))
     completed.append(state)
@@ -214,29 +248,30 @@ if print_std:
                 print('\t' + str(tran))
 
 if print_hoa:
-    print_str = "HOA: v1\nStates: " + str(len(safra_states) + 1) + "\n" + "Start: 0\nacc-name: Buchi\nAcceptance: "
+    print_str = "HOA: v1\nStates: " + str(len(safra_states) + 1) + "\n" + "Start: 0\nacc-name: Buchi\n" \
+                                                                          "Acceptance: "
     i = 0
     for item in safra_states:
         if item != ['fail']:
             if item[1] == ['success'] or (8 in item[1] and len(item[1]) != 1):
                 i += 1
-    print_str += "1" + " Inf(0)"
-    """j = 1
-    while j < i:
-        print_str += " & Inf(" + str(j) + ")"
-        j += 1"""
-    print_str += "\nproperties: explicit-labels state-acc trans-labels\nAP: 2 \"a0\" \"a1\"\n--BODY--\n"
-    j = 0
+    print_str += "3" + " (Inf(0) & Fin(1)) | Inf(2)"
+    print_str += "\nproperties: explicit-labels trans-labels\nAP: 2 \"a0\" \"a1\"\n--BODY--\n"
     i = 0
     for item in safra_states:
         print_str += "State: " + str(i)
         if item != ['fail']:
-            if item[1] == ['success'] or item in loop_states:
-                print_str += " { " + "0" + " }"
-                j += 1
-        print_str += "\n\t[0 & !1] " + str(safra_states.index(transitions[i * 2][2])) + "\n\t[!0 & 1] " \
-                     + str(safra_states.index(transitions[i * 2 + 1][2])) + "\n\t[!0&!1 | 0&1] " \
-                     + str(len(safra_states)) + "\n"
+            if item[1] == ['success']:
+                print_str += " { 2 }"
+            elif item in loop_states:
+                print_str += " { 0 }"
+        print_str += "\n\t[0 & !1] " + str(safra_states.index(transitions[i * 2][2]))
+        if i*2 in bad_transitions and transitions[i*2][2] not in loop_states:
+            print_str += " { 1 }"
+        print_str += "\n\t[!0 & 1] " + str(safra_states.index(transitions[i * 2 + 1][2]))
+        if i*2+1 in bad_transitions and transitions[i*2+1][2] not in loop_states:
+            print_str += " { 1 }"
+        print_str += "\n\t[!0&!1 | 0&1] " + str(len(safra_states)) + "\n"
         i += 1
     print_str += "State: " + str(len(safra_states)) + "\n\t[t] " + str(len(safra_states)) + "\n"
     print_str += "--END--"
