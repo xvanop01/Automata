@@ -7,20 +7,22 @@ print_std = False
 print_dot = False
 print_hoa = False
 print_img = False
+print_run = False
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "hp:", ["img="])
+    opts, args = getopt.getopt(sys.argv[1:], "hp:r:", ["img="])
 except getopt.GetoptError:
     print("Invalid argument(s), use: \"main.py -h\" for usage specifications.")
     exit(1)
 for opt, arg in opts:
     if opt == "-h":
         print("Possible options are:\n"
-              "-h\t\tprints help message\n"
-              "-p <format>\t\tprints transformed automata to stdout, possible formats:\n"
+              "-h\t\tprint help message\n"
+              "-p <format>\t\tprint transformed automata to stdout, possible formats:\n"
               "\thoa - .hoa standard format\n"
               "\tdot - .dot standard format\n"
               "\tcsa - custom format (used in Safra's construction)\n"
-              "--img <FILE>\t\tcreates schema of automaton (FILE.png) using dot command")
+              "-r <FILE>\t\tprint run through automata on string from file\n"
+              "--img <FILE>\t\tcreate schema of automaton (FILE.png) using dot command")
         exit(0)
     elif opt == "-p":
         if arg == "hoa":
@@ -29,6 +31,9 @@ for opt, arg in opts:
             print_dot = True
         elif arg == "csa":
             print_std = True
+    elif opt == "-r":
+        print_run = True
+        runFile = arg;
     elif opt == "--img":
         print_img = True
         output_file = arg
@@ -135,12 +140,12 @@ for state in safra_states:
                     if item in state[2] and tran[1] not in new_state[2]:
                         new_state[2].append(tran[1])
                     bad = False
-                    if item not in new_state[1]:
+                    if tran[1] not in new_state[1]:
                         new_state[1].append(tran[1])
                 if tran[1] not in new_state[0]:
                     new_state[0].append(tran[1])
-                if tran[1] == acc and acc not in new_state[1]:  # acceptance
-                    new_state[1].append(acc)
+                if tran[1] == acc and tran[1] not in new_state[1]:  # acceptance
+                    new_state[1].append(tran[1])
     new_state[0].sort()
     new_state[1].sort()
     new_state[2].sort()
@@ -157,8 +162,11 @@ for state in safra_states:
         loop_states.append(new_state)
     if new_state not in bad_states and bad:
         bad_states.append(new_state)
-    if bad:
-        bad_transitions.append(safra_states.index(state)*2)
+    if state != ['fail'] and new_state != ['fail']:
+        if state[2] != [] and state[2] != ['success'] and new_state[2] == []:
+            bad_transitions.append(safra_states.index(state)*2)
+        elif state[1] != [] and state[1] != ['success'] and new_state[1] == []:
+            bad_transitions.append(safra_states.index(state)*2)
     if (state, 0, new_state) not in transitions:
         transitions.append((state, 0, new_state))
 
@@ -177,12 +185,12 @@ for state in safra_states:
                     if item in state[2] and tran[1] not in new_state[2]:
                         new_state[2].append(tran[1])
                     bad = False
-                    if item not in new_state[1]:
+                    if tran[1] not in new_state[1]:
                         new_state[1].append(tran[1])
                 if tran[1] not in new_state[0]:
                     new_state[0].append(tran[1])
-                if tran[1] == acc and acc not in new_state[1]:  # acceptance
-                    new_state[1].append(acc)
+                if tran[1] == acc and tran[1] not in new_state[1]:  # acceptance
+                    new_state[1].append(tran[1])
     new_state[0].sort()
     new_state[1].sort()
     new_state[2].sort()
@@ -199,8 +207,11 @@ for state in safra_states:
         loop_states.append(new_state)
     if new_state not in bad_states and bad:
         bad_states.append(new_state)
-    if bad:
-        bad_transitions.append(safra_states.index(state)*2+1)
+    if state != ['fail'] and new_state != ['fail']:
+        if state[2] != [] and state[2] != ['success'] and new_state[2] == []:
+            bad_transitions.append(safra_states.index(state)*2+1)
+        elif state[1] != [] and state[1] != ['success'] and new_state[1] == []:
+            bad_transitions.append(safra_states.index(state)*2+1)
     if (state, 1, new_state) not in transitions:
         transitions.append((state, 1, new_state))
     completed.append(state)
@@ -248,31 +259,52 @@ if print_std:
                 print('\t' + str(tran))
 
 if print_hoa:
-    print_str = "HOA: v1\nStates: " + str(len(safra_states) + 1) + "\n" + "Start: 0\nacc-name: Buchi\n" \
+    print_str = "HOA: v1\nStates: " + str(len(safra_states) + 1) + "\n" + "Start: 0\nacc-name: parity min even 3\n" \
                                                                           "Acceptance: "
     i = 0
     for item in safra_states:
         if item != ['fail']:
             if item[1] == ['success'] or (8 in item[1] and len(item[1]) != 1):
                 i += 1
-    print_str += "3" + " (Inf(0) & Fin(1)) | Inf(2)"
+    print_str += "3" + " Inf(0) | (Fin(1) & Inf(2))"
     print_str += "\nproperties: explicit-labels trans-labels\nAP: 2 \"a0\" \"a1\"\n--BODY--\n"
     i = 0
     for item in safra_states:
         print_str += "State: " + str(i)
         if item != ['fail']:
-            if item[1] == ['success']:
-                print_str += " { 2 }"
-            elif item in loop_states:
-                print_str += " { 0 }"
         print_str += "\n\t[0 & !1] " + str(safra_states.index(transitions[i * 2][2]))
-        if i*2 in bad_transitions and transitions[i*2][2] not in loop_states:
-            print_str += " { 1 }"
+        if transitions[i * 2][2] != ['fail']:
+            if transitions[i * 2][2][1] == ['success']:
+                print_str += " { 0 }"
+            elif i*2 in bad_transitions:
+                print_str += " { 1 }"
+            elif transitions[i * 2][2] in loop_states:
+                print_str += " { 2 }"
         print_str += "\n\t[!0 & 1] " + str(safra_states.index(transitions[i * 2 + 1][2]))
-        if i*2+1 in bad_transitions and transitions[i*2+1][2] not in loop_states:
-            print_str += " { 1 }"
+        if transitions[i * 2 + 1][2] != ['fail']:
+            if transitions[i * 2 + 1][2][1] == ['success']:
+                print_str += " { 0 }"
+            elif i * 2 + 1 in bad_transitions:
+                print_str += " { 1 }"
+            elif transitions[i * 2 + 1][2] in loop_states:
+                print_str += " { 2 }"
         print_str += "\n\t[!0&!1 | 0&1] " + str(len(safra_states)) + "\n"
         i += 1
     print_str += "State: " + str(len(safra_states)) + "\n\t[t] " + str(len(safra_states)) + "\n"
     print_str += "--END--"
+    print(print_str)
+
+if print_run:
+    file = open(runFile, "r")
+    string = file.read()
+    file.close()
+    runTrans = re.split("\n", string)
+    target = safra_states[0]
+    print_str = str(safra_states.index(target)) + "\t" + str(target) + "\n"
+    for ch in runTrans:
+        for tran in transitions:
+            if tran[0] == target and str(tran[1]) == ch:
+                target = tran[2]
+                print_str += str(safra_states.index(target)) + "\t" + str(target) + "\n"
+                break
     print(print_str)
