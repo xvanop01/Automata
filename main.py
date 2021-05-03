@@ -271,7 +271,6 @@ if print_hoa:
     i = 0
     for item in safra_states:
         print_str += "State: " + str(i)
-        if item != ['fail']:
         print_str += "\n\t[0 & !1] " + str(safra_states.index(transitions[i * 2][2]))
         if transitions[i * 2][2] != ['fail']:
             if transitions[i * 2][2][1] == ['success']:
