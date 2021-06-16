@@ -2,6 +2,7 @@ class State:
     def __init__(self, items):
         self.possible_states = []
         self.substates = []
+        self.node = 1
         for i in items:
             self.possible_states.append(i)
         self.possible_states.sort()
@@ -65,12 +66,6 @@ class State:
         for number in new_state.possible_states:
             if number == acc:
                 new_state.addSubstate([number])
-        i = 0
-        while i < len(self.substates):
-            if len(self.substates[i].possible_states) == 0:
-                del self.substates[i]
-            else:
-                i += 1
         return new_state
 
     def horizontalMerge(self):
@@ -87,15 +82,9 @@ class State:
                 substate.horizontalMerge()
             else:
                 raise TypeError
-        i = 0
-        while i < len(self.substates):
-            if len(self.substates[i].possible_states) == 0:
-                del self.substates[i]
-            else:
-                i += 1
 
     def verticalMerge(self):
-        merged = False
+        merged = -1
         reached_acc = []
         for substate in self.substates:
             if isinstance(substate, State):
@@ -107,8 +96,66 @@ class State:
         reached_acc.sort()
         if reached_acc == self.possible_states:
             self.substates = []
-            return True
+            if self.possible_states:
+                return self.node
+            else:
+                return -1
         else:
+            i = 0
+            while i < len(self.substates):
+                if len(self.substates[i].possible_states) == 0:
+                    del self.substates[i]
+                else:
+                    i += 1
             for substate in self.substates:
-                merged = merged or substate.verticalMerge()
+                returned_value = substate.verticalMerge()
+                if returned_value != -1 and (merged == -1 or merged > returned_value):
+                    merged = returned_value
             return merged
+
+    def getNumberOfStates(self):
+        n = 1
+        for state in self.substates:
+            n += state.getNumberOfStates()
+        return n
+
+    def setNode(self, number):
+        self.node = number
+
+    def setChildren(self, number, layer):
+        todo = [self.substates]
+        i = 0
+        while layer > 1:
+            todo.append([])
+            for state in todo[i]:
+                for subst in state.substates:
+                    todo[i+1].append(subst)
+            i += 1
+            layer -= 1
+            if not todo[i]:
+                return number
+        for state in todo[i]:
+            state.setNode(number)
+            number += 1
+        return number
+
+    def getMissing(self, number, layer):
+        todo = [self.substates]
+        i = 0
+        while layer > 1:
+            todo.append([])
+            for state in todo[i]:
+                for subst in state.substates:
+                    todo[i + 1].append(subst)
+            i += 1
+            layer -= 1
+            if not todo[i]:
+                return number
+        for state in todo[i]:
+            if number < state.node:
+                return number
+            elif not state.possible_states:
+                return state.node
+            else:
+                number += 1
+        return number
