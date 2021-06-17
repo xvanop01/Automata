@@ -21,6 +21,13 @@ class State:
                 return True
         return False
 
+    def __str__(self):
+        string = "{" + str(self.possible_states)
+        for state in self.substates:
+            string += str(state)
+        string += "}"
+        return string
+
     def empty(self):
         if not self.possible_states:
             return True
@@ -64,7 +71,7 @@ class State:
         for item in substates:
             new_state.substates.append(item)
         for number in new_state.possible_states:
-            if number == acc:
+            if number in acc:
                 new_state.addSubstate([number])
         return new_state
 
